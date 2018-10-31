@@ -12,6 +12,8 @@ In WSDM. ACM, 425-434.
 
 import numpy as np
 import tensorflow as tf
+import os
+from tqdm import tqdm
 import math
 from tensorflow.contrib import learn
 import datetime
@@ -19,8 +21,8 @@ import datetime
 import pickle
 import DeepCoNN
 
-tf.flags.DEFINE_string("word2vec", "../data/google.bin", "Word2vec file with pre-trained embeddings (default: None)")
-tf.flags.DEFINE_string("valid_data","../data/music/music.valid", " Data for validation")
+tf.flags.DEFINE_string("word2vec", "/DATA3_DB7/data/kncui/data/GoogleNews-vectors-negative300/GoogleNews-vectors-negative300.bin", "Word2vec file with pre-trained embeddings (default: None)")
+tf.flags.DEFINE_string("valid_data","../data/music/music.test", " Data for validation")
 tf.flags.DEFINE_string("para_data", "../data/music/music.para", "Data parameters")
 tf.flags.DEFINE_string("train_data", "../data/music/music.train", "Data for training")
 
@@ -88,10 +90,10 @@ def dev_step(u_batch, i_batch, uid, iid, y_batch, writer=None):
 
 if __name__ == '__main__':
     FLAGS = tf.flags.FLAGS
-    FLAGS._parse_flags()
+    FLAGS.flag_values_dict()
     print("\nParameters:")
     for attr, value in sorted(FLAGS.__flags.items()):
-        print("{}={}".format(attr.upper(), value))
+        print("{}={}".format(attr.upper(), value._value))
     print("")
 
     print("Loading data...")
@@ -109,9 +111,16 @@ if __name__ == '__main__':
     test_length = para['test_length']
     u_text = para['u_text']
     i_text = para['i_text']
+    u_embedding = para['u_embedding']
+    i_embedding = para['i_embedding']
 
     np.random.seed(2017)
     random_seed = 2017
+
+    os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free >tmp')
+    memory_gpu = [int(x.split()[2]) for x in open('tmp', 'r').readlines()]
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(memory_gpu.index(max(memory_gpu)))
+    os.system('rm tmp')
 
     with tf.Graph().as_default():
 
@@ -149,67 +158,69 @@ if __name__ == '__main__':
             sess.run(tf.initialize_all_variables())
 
             if FLAGS.word2vec:
-                # initial matrix with random uniform
-                u = 0
-                initW = np.random.uniform(-1.0, 1.0, (len(vocabulary_user), FLAGS.embedding_dim))
-                # load any vectors from the word2vec
-                print("Load word2vec u file {}\n".format(FLAGS.word2vec))
-                with open(FLAGS.word2vec, "rb") as f:
-                    header = f.readline()
-                    vocab_size, layer1_size = map(int, header.split())
-                    binary_len = np.dtype('float32').itemsize * layer1_size
-                    for line in xrange(vocab_size):
-                        word = []
-                        while True:
-                            ch = f.read(1)
-                            if ch == ' ':
-                                word = ''.join(word)
-                                break
-                            if ch != '\n':
-                                word.append(ch)
-                        idx = 0
+                # # initial matrix with random uniform
+                # u = 0
+                # initW = np.random.uniform(-1.0, 1.0, (len(vocabulary_user), FLAGS.embedding_dim))
+                # # load any vectors from the word2vec
+                # print("Load word2vec u file {}\n".format(FLAGS.word2vec))
+                # with open(FLAGS.word2vec, "rb") as f:
+                #     header = f.readline()
+                #     vocab_size, layer1_size = map(int, header.split())
+                #     binary_len = np.dtype('float32').itemsize * layer1_size
+                #     for line in range(vocab_size):
+                #         word = []
+                #         while True:
+                #             ch = f.read(1)
+                #             if ch == ' ':
+                #                 word = ''.join(word)
+                #                 break
+                #             if ch != '\n':
+                #                 word.append(ch)
+                #         idx = 0
+                #
+                #         if word in vocabulary_user:
+                #             u = u + 1
+                #             idx = vocabulary_user[word]
+                #             initW[idx] = np.fromstring(f.read(binary_len), dtype='float32')
+                #         else:
+                #             f.read(binary_len)
+                sess.run(deep.W1.assign(u_embedding))
 
-                        if word in vocabulary_user:
-                            u = u + 1
-                            idx = vocabulary_user[word]
-                            initW[idx] = np.fromstring(f.read(binary_len), dtype='float32')
-                        else:
-                            f.read(binary_len)
-                sess.run(deep.W1.assign(initW))
-                initW = np.random.uniform(-1.0, 1.0, (len(vocabulary_item), FLAGS.embedding_dim))
-                # load any vectors from the word2vec
-                print("Load word2vec i file {}\n".format(FLAGS.word2vec))
 
-                item = 0
-                with open(FLAGS.word2vec, "rb") as f:
-                    header = f.readline()
-                    vocab_size, layer1_size = map(int, header.split())
-                    binary_len = np.dtype('float32').itemsize * layer1_size
-                    for line in xrange(vocab_size):
-                        word = []
-                        while True:
-                            ch = f.read(1)
-                            if ch == ' ':
-                                word = ''.join(word)
-                                break
-                            if ch != '\n':
-                                word.append(ch)
-                        idx = 0
-                        if word in vocabulary_item:
-                            item = item + 1
-                            idx = vocabulary_item[word]
-                            initW[idx] = np.fromstring(f.read(binary_len), dtype='float32')
-                        else:
-                            f.read(binary_len)
+                # initW = np.random.uniform(-1.0, 1.0, (len(vocabulary_item), FLAGS.embedding_dim))
+                # # load any vectors from the word2vec
+                # print("Load word2vec i file {}\n".format(FLAGS.word2vec))
+                # item = 0
+                # with open(FLAGS.word2vec, "rb") as f:
+                #     header = f.readline()
+                #     vocab_size, layer1_size = map(int, header.split())
+                #     binary_len = np.dtype('float32').itemsize * layer1_size
+                #     for line in range(vocab_size):
+                #         word = []
+                #         while True:
+                #             ch = f.read(1)
+                #             if ch == ' ':
+                #                 word = ''.join(word)
+                #                 break
+                #             if ch != '\n':
+                #                 word.append(ch)
+                #         idx = 0
+                #         if word in vocabulary_item:
+                #             item = item + 1
+                #             idx = vocabulary_item[word]
+                #             initW[idx] = np.fromstring(f.read(binary_len), dtype='float32')
+                #         else:
+                #             f.read(binary_len)
 
-                sess.run(deep.W2.assign(initW))
+                sess.run(deep.W2.assign(i_embedding))
 
             l = (train_length / FLAGS.batch_size) + 1
-            print l
-            ll = 0
+            print (l)
+            total_batch_number_train = 0
             epoch = 1
             best_mae = 5
             best_rmse = 5
+            bset_epoch = 0
             train_mae = 0
             train_rmse = 0
 
@@ -229,13 +240,13 @@ if __name__ == '__main__':
             data_size_train = len(train_data)
             data_size_test = len(test_data)
             batch_size = 100
-            ll = int(len(train_data) / batch_size)
+            total_batch_number_train = int(len(train_data) / batch_size) + 1
 
             for epoch in range(40):
                 # Shuffle the data at each epoch
                 shuffle_indices = np.random.permutation(np.arange(data_size_train))
                 shuffled_data = train_data[shuffle_indices]
-                for batch_num in range(ll):
+                for batch_num in tqdm(range(total_batch_number_train)):
                     start_index = batch_num * batch_size
                     end_index = min((batch_num + 1) * batch_size, data_size_train)
                     data_train = shuffled_data[start_index:end_index]
@@ -250,20 +261,21 @@ if __name__ == '__main__':
                     u_batch = np.array(u_batch)
                     i_batch = np.array(i_batch)
 
-                    t_rmse, t_mae = train_step(u_batch, i_batch, uid, iid, y_batch, batch_num)
+                    rmse, mae = train_step(u_batch, i_batch, uid, iid, y_batch, batch_num)
                     current_step = tf.train.global_step(sess, global_step)
-                    train_rmse += t_rmse
-                    train_mae += t_mae
+                    train_rmse = train_rmse + len(u_batch) * np.square(rmse)
+                    train_mae = train_mae + len(u_batch) * mae
+
 
                     if batch_num % 1000 == 0 and batch_num > 1:
                         print("\nEvaluation:")
-                        print batch_num
+                        print (batch_num)
                         loss_s = 0
-                        accuracy_s = 0
-                        mae_s = 0
+                        test_rmse = 0
+                        test_mae = 0
 
-                        ll_test = int(len(test_data) / batch_size) + 1
-                        for batch_num2 in range(ll_test):
+                        total_batch_number_test = int(len(test_data) / batch_size) + 1
+                        for batch_num2 in range(total_batch_number_test):
                             start_index = batch_num2 * batch_size
                             end_index = min((batch_num2 + 1) * batch_size, data_size_test)
                             data_test = test_data[start_index:end_index]
@@ -280,25 +292,26 @@ if __name__ == '__main__':
 
                             loss, accuracy, mae = dev_step(u_valid, i_valid, userid_valid, itemid_valid, y_valid)
                             loss_s = loss_s + len(u_valid) * loss
-                            accuracy_s = accuracy_s + len(u_valid) * np.square(accuracy)
-                            mae_s = mae_s + len(u_valid) * mae
+                            test_rmse = test_rmse + len(u_valid) * np.square(accuracy)
+                            test_mae = test_mae + len(u_valid) * mae
                         print ("loss_valid {:g}, rmse_valid {:g}, mae_valid {:g}".format(loss_s / test_length,
                                                                                          np.sqrt(
-                                                                                             accuracy_s / test_length),
-                                                                                         mae_s / test_length))
+                                                                                             test_rmse / test_length),
+                                                                                         test_mae / test_length))
 
-                print str(epoch) + ':\n'
-                print("\nEvaluation:")
-                print "train:rmse,mae:", train_rmse / ll, train_mae / ll
+
+                print ("Epoch train: [{:d}]".format(epoch)
+                       + "| rmse: {:.3f}".format(np.sqrt(train_rmse / data_size_train))
+                       + "| mae: {:.3f}".format(train_mae / data_size_train))
                 train_rmse = 0
                 train_mae = 0
 
                 loss_s = 0
-                accuracy_s = 0
-                mae_s = 0
+                test_rmse = 0
+                test_mae = 0
 
-                ll_test = int(len(test_data) / batch_size) + 1
-                for batch_num in range(ll_test):
+                total_batch_number_test = int(len(test_data) / batch_size) + 1
+                for batch_num in range(total_batch_number_test):
                     start_index = batch_num * batch_size
                     end_index = min((batch_num + 1) * batch_size, data_size_test)
                     data_test = test_data[start_index:end_index]
@@ -312,21 +325,25 @@ if __name__ == '__main__':
                     u_valid = np.array(u_valid)
                     i_valid = np.array(i_valid)
 
-                    loss, accuracy, mae = dev_step(u_valid, i_valid, userid_valid, itemid_valid, y_valid)
+                    loss, rmse, mae = dev_step(u_valid, i_valid, userid_valid, itemid_valid, y_valid)
                     loss_s = loss_s + len(u_valid) * loss
-                    accuracy_s = accuracy_s + len(u_valid) * np.square(accuracy)
-                    mae_s = mae_s + len(u_valid) * mae
-                print ("loss_valid {:g}, rmse_valid {:g}, mae_valid {:g}".format(loss_s / test_length,
-                                                                                 np.sqrt(accuracy_s / test_length),
-                                                                                 mae_s / test_length))
-                rmse = np.sqrt(accuracy_s / test_length)
-                mae = mae_s / test_length
+                    test_rmse = test_rmse + len(u_valid) * np.square(rmse)
+                    test_mae = test_mae + len(u_valid) * mae
+                print ("Epoch valid: [{:d}]".format(epoch)
+                       + "| rmse: {:.3f}".format(np.sqrt(test_rmse / data_size_test))
+                       + "| mae: {:.3f}".format(test_mae / data_size_test)
+                       + "| loss: {:.3f}".format(loss_s / test_length))
+                # print ("loss_valid {:g}, rmse_valid {:g}, mae_valid {:g}".format(loss_s / test_length,
+                #                                                                  np.sqrt(accuracy_s / data_size_test),
+                #                                                                  mae_s / data_size_test))
+                rmse = np.sqrt(test_rmse / test_length)
+                mae = test_mae / test_length
                 if best_rmse > rmse:
                     best_rmse = rmse
+                    best_epcoh = epoch
                 if best_mae > mae:
                     best_mae = mae
-                print("")
-            print 'best rmse:', best_rmse
-            print 'best mae:', best_mae
-
-    print 'end'
+                print ("Best epoch:  [{:d}]".format(best_epcoh)
+                       + "| rmse: {:.3f}".format(best_rmse)
+                       + "| mae: {:.3f}".format(best_mae))
+    print ('end')

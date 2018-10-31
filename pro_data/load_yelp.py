@@ -24,14 +24,12 @@ reviews=[]
 np.random.seed(2017)
 
 for line in f:
-    print line
-
     js=json.loads(line)
     if str(js['user_id'])=='unknown':
-        print "unknown"
+        print ("unknown")
         continue
     if str(js['business_id'])=='unknown':
-        print "unknown2"
+        print ("unknown2")
         continue
 
     reviews.append(js['text'])
@@ -69,9 +67,9 @@ def filter_triplets(tp, min_uc=MIN_USER_COUNT, min_sc=MIN_SONG_COUNT):
 data,usercount, itemcount=filter_triplets(data)
 #usercount, itemcount = get_count(data, 'user_id'), get_count(data, 'item_id')
 
-print data.shape[0]
-print usercount.shape[0]
-print itemcount.shape[0]
+print (data.shape[0])
+print (usercount.shape[0])
+print (itemcount.shape[0])
 
 unique_uid = usercount.index
 unique_sid = itemcount.index
@@ -114,19 +112,19 @@ item_reviews={}
 user_rid={}
 item_rid={}
 for i in data.values:
-    if user_reviews.has_key(i[0]):
+    if i[0] in user_reviews.keys():
         user_reviews[i[0]].append(i[3])
         user_rid[i[0]].append(i[1])
     else:
         user_rid[i[0]]=[i[1]]
         user_reviews[i[0]]=[i[3]]
-    if item_reviews.has_key(i[1]):
+    if i[1] in item_reviews.keys():
         item_reviews[i[1]].append(i[3])
         item_rid[i[1]].append(i[0])
     else:
         item_reviews[i[1]] = [i[3]]
         item_rid[i[1]]=[i[0]]
-print item_reviews[11]
+print (item_reviews[11])
 pickle.dump(user_reviews, open(os.path.join(TPS_DIR, 'user_review'), 'wb'))
 pickle.dump(item_reviews, open(os.path.join(TPS_DIR, 'item_review'), 'wb'))
 pickle.dump(user_rid, open(os.path.join(TPS_DIR, 'user_rid'), 'wb'))
@@ -135,6 +133,6 @@ pickle.dump(item_rid, open(os.path.join(TPS_DIR, 'item_rid'), 'wb'))
 usercount, itemcount = get_count(data, 'user_id'), get_count(data, 'item_id')
 
 
-print np.sort(np.array(usercount.values))
+print (np.sort(np.array(usercount.values)))
 
-print np.sort(np.array(itemcount.values))
+print (np.sort(np.array(itemcount.values)))
